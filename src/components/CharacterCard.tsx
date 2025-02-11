@@ -9,11 +9,17 @@ interface CharacterCardProps {
 }
 
 function CharacterCard(props: CharacterCardProps) {
+
+    const {characterIndex, setSkillCheckResult} = props;
+
     const ATTRIBUTE_MAXIMUM = 70;
     const [attributeValues, setAttributeValues] = React.useState<Record<string, number>>({});
     const [classRequirements, setClassRequirements] = React.useState<Record<string, number>>();
     const [requirementsMetClasses, setRequirementsMetClasses] = React.useState<string[]>([]);
     const [skillValues, setSkillValues] = React.useState<Record<string, number>>({});
+    const [skillPoints, setSkillPoints] = React.useState<number>(10);
+    const [selectedSkill, setSelectedSkill] = React.useState(`${SKILL_LIST[0].name}:${SKILL_LIST[0].attributeModifier}`);
+    const [dc, setDC] = React.useState<number>(0);
 
     const incrementAttribute = (attribute: string) => {
         let _attributeValues = attributeValues;
@@ -49,10 +55,42 @@ function CharacterCard(props: CharacterCardProps) {
         return true;
     }
 
+    const canIncrementSkill = () => {
+        const _skillSum = Object.values(skillValues).reduce((a, b) => a + b, 0);
+        if(_skillSum >= skillPoints){
+            alert(`Sum of all skills cannot be greater than ${skillPoints}`);
+            return false;
+        }
+        return true;
+    }
+
+    const incrementSkill = (skill: string) => {
+        if(!canIncrementSkill()){
+            return false;
+        }
+        let _skillValues = skillValues;
+        if(!skillValues.hasOwnProperty(skill)) {
+            _skillValues[skill] = 1;
+            setSkillValues({..._skillValues});
+            return;
+        }
+        _skillValues[skill]++;
+        setSkillValues({..._skillValues});
+    }
+    const decrementSkill = (skill: string) => {
+        let _skillValues = skillValues;
+        if(!skillValues.hasOwnProperty(skill)) {
+            _skillValues[skill] = 0;
+            setSkillValues({..._skillValues});
+            return;
+        }
+        _skillValues[skill]--;
+        setSkillValues({..._skillValues});
+    }
+
     const canUseClass = (characterClass: Attributes): boolean => {
         let returnValue = true;
         Object.keys(characterClass).forEach(key => {
-            console.log(attributeValues[key] < characterClass[key])
             if(!attributeValues[key] || (attributeValues[key] < characterClass[key])){
                 returnValue = false;
             }
@@ -60,7 +98,29 @@ function CharacterCard(props: CharacterCardProps) {
         return returnValue;
     }
 
+    const calculateSkillPoints = (intelligence: number) => {
+        setSkillPoints(10 + ((intelligence || 0) * 4));
+    }
+
+    const characterRoll = () => {
+        // 0 - name, 1 - attributeModifier
+        const skill = selectedSkill.split(":");
+        const skillValue = skillValues[skill[0]] || 0;
+        const modifierValue = attributeValues[skill[1]] || 0;
+        const roll = Math.floor(Math.random() * 21)
+
+        setSkillCheckResult({
+            characterIndex,
+            skill,
+            skillValue,
+            modifierValue,
+            dc,
+            roll
+        })
+    }
+
     useEffect(() => {
+        calculateSkillPoints(attributeValues["Intelligence"])
         let _requirementsMetClasses = [];
         Object.keys(CLASS_LIST).forEach((key) => {
             if(canUseClass(CLASS_LIST[key])){
@@ -73,7 +133,7 @@ function CharacterCard(props: CharacterCardProps) {
     return (
         <div className="border border-light border rounded p-5">
             <Row>
-                <h1>Character {props.characterIndex}</h1>
+                <h1>Character {characterIndex}</h1>
             </Row>
             <Row>
                 <h2>Skill Check</h2>
@@ -82,10 +142,10 @@ function CharacterCard(props: CharacterCardProps) {
                 <Col>
                     <label>
                         Skill:
-                        <select>
+                        <select onChange={(event) => setSelectedSkill(event.target.value)}>
                             {SKILL_LIST.map((skill) => {
                                 return (
-                                    <option key={skill.name}>{skill.name}</option>
+                                    <option value={`${skill.name}:${skill.attributeModifier}`} key={skill.name}>{skill.name}</option>
                                 )
                             })}
                         </select>
@@ -94,11 +154,11 @@ function CharacterCard(props: CharacterCardProps) {
                 <Col>
                     <label className="m-2">
                         DC:
-                        <input type="text"/>
+                        <input onChange={event => setDC(parseInt(event.target.value) || undefined)} type="text"/>
                     </label>
                 </Col>
                 <Col>
-                    <Button onClick={() => {}}>
+                    <Button onClick={characterRoll}>
                         Roll
                     </Button>
                 </Col>
@@ -154,14 +214,15 @@ function CharacterCard(props: CharacterCardProps) {
                     <h2>
                         Skills
                     </h2>
+                    <p>Skill points to spend; {skillPoints}</p>
                     <ul className="list-group">
                         {SKILL_LIST.map((skill) => {
                             return (
                                 <li className="list-group-item">
                                     {skill.name}: {skillValues[skill.name] || 0}
                                     (Modifier: {skill.attributeModifier}): {attributeValues[skill.attributeModifier] || 0}
-                                    <Button className="m-1" onClick={() => {}}>+</Button>
-                                    <Button className="m-1" onClick={() => {}}>-</Button>
+                                    <Button className="m-1" onClick={() => incrementSkill(skill.name)}>+</Button>
+                                    <Button className="m-1" onClick={() => decrementSkill(skill.name)}>-</Button>
                                     Total: {(skillValues[skill.name] || 0) + (attributeValues[skill.attributeModifier] || 0)}
                                 </li>
                             )
